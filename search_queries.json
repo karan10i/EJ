@@ -1,0 +1,38 @@
+{
+  "internship_searches": [
+    "Software Engineering Intern",
+    "Software Engineer Intern",
+    "Developer Intern",
+    "Summer Intern",
+    "Software Development Intern",
+    "Programming Intern",
+    "Tech Intern",
+    "SDE Intern",
+    "JavaScript Intern",
+    "Python Intern",
+    "Java Intern",
+    "React Intern",
+    "Node.js Intern"
+  ],
+  "entry_level_searches": [
+    "Junior Developer",
+    "Junior Software Engineer",
+    "Entry-Level Software Engineer",
+    "Entry-Level Developer",
+    "Associate Developer",
+    "Associate Software Engineer",
+    "Graduate Developer",
+    "New Grad Software Engineer",
+    "Entry-Level Front-End Engineer",
+    "Entry-Level Back-End Engineer",
+    "Junior Full Stack Developer"
+  ],
+  "open_source_searches": [
+    "good first issue",
+    "help wanted",
+    "first-timers-only",
+    "beginner-friendly",
+    "up-for-grabs",
+    "documentation"
+  ]
+}
