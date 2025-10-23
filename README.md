@@ -33,24 +33,40 @@ Set credentials via environment variables or enter them at prompt:
 export LINKEDIN_USERNAME="your.email@example.com"
 export LINKEDIN_PASSWORD="your_password"
 
-# run all queries from search_queries.json (default: content search)
+# NEW: Process categories one at a time (RECOMMENDED for reliability)
+# This processes one category completely before moving to the next
 python linkedin_email_scraper.py
 
-# run specific categories only
-python linkedin_email_scraper.py --categories internship_searches entry_level_searches
+# Run specific categories only (e.g., just internships)
+python linkedin_email_scraper.py --categories internship_searches
 
-# customize search type (content/people/jobs)
-python linkedin_email_scraper.py --search-type content --max-scrolls 10
-
-# full example with all options
+# Customize delays and scrolling
 python linkedin_email_scraper.py \
-  --queries search_queries.json \
-  --categories internship_searches \
-  --search-type content \
-  --max-scrolls 5 \
+  --categories internship_searches entry_level_searches \
+  --max-scrolls 10 \
   --scroll-pause 2.5 \
-  --tab-delay 2.0 \
-  --output internship_emails.csv
+  --category-delay 15 \
+  --output hiring_emails.csv
+
+# Search for people instead of content posts
+python linkedin_email_scraper.py --search-type people
+```
+
+### Key improvements for reliability
+- **Login retry logic**: Automatically retries login up to 3 times with exponential backoff on timeout
+- **Sequential processing**: Processes one category at a time (no longer opens all tabs at once)
+- **Continuous saving**: Saves results after **EVERY query** completes (maximum data preservation on crash)
+- **Post expansion**: Automatically clicks "see more" buttons to expand truncated posts before extracting emails
+- **Better error handling**: Continues to next query if one fails; shows detailed progress
+
+### Recommended settings to avoid timeouts
+```bash
+# Conservative settings for maximum reliability
+python linkedin_email_scraper.py \
+  --max-scrolls 5 \
+  --scroll-pause 3.0 \
+  --tab-delay 4.0 \
+  --category-delay 15.0
 ```
 
 ## Output

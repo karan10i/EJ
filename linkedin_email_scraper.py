@@ -141,6 +141,8 @@ def login_linkedin(driver, username, password, wait_time=10, max_retries=3):
 
 def scroll_and_collect(driver, scroll_pause=2.0, max_scrolls=10):
     """Scroll the feed to load posts and collect page HTML after each scroll.
+    
+    Also attempts to expand truncated posts by clicking "see more" buttons.
 
     Returns concatenated HTML of loaded content.
     """
@@ -150,10 +152,39 @@ def scroll_and_collect(driver, scroll_pause=2.0, max_scrolls=10):
     for i in range(max_scrolls):
         driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
         time.sleep(scroll_pause)
+        
+        # Try to expand truncated posts by clicking "see more" buttons
+        try:
+            # LinkedIn uses various text for expansion: "...more", "see more", etc.
+            see_more_buttons = driver.find_elements(By.XPATH, 
+                "//*[contains(@class, 'see-more') or contains(@class, 'show-more') or "
+                "contains(text(), '...more') or contains(text(), 'see more') or "
+                "contains(text(), 'See more')]")
+            
+            clicked = 0
+            for btn in see_more_buttons[:10]:  # Limit to 10 per scroll to avoid infinite loops
+                try:
+                    if btn.is_displayed() and btn.is_enabled():
+                        driver.execute_script("arguments[0].scrollIntoView(true);", btn)
+                        time.sleep(0.3)
+                        driver.execute_script("arguments[0].click();", btn)
+                        clicked += 1
+                        time.sleep(0.2)
+                except:
+                    continue
+            
+            if clicked > 0:
+                print(f"  → Expanded {clicked} truncated posts")
+                time.sleep(1)  # Give time for content to load
+        except Exception as e:
+            # Silent failure - expansion is best-effort
+            pass
+        
         new_height = driver.execute_script("return document.body.scrollHeight")
         # Collect current page HTML
         html_chunks.append(driver.page_source)
         print(f"Scrolled {i+1}/{max_scrolls}")
+        
         if new_height == last_height:
             # Reached the bottom or no more dynamic content
             break
@@ -422,8 +453,6 @@ def main():
             print(f"  Queries: {len(queries)}")
             print(f"{'='*60}")
             
-            category_emails = []
-            
             # Process each query in this category
             for query_idx, query in enumerate(queries, 1):
                 try:
@@ -443,25 +472,25 @@ def main():
                     
                     print(f"  → Found {len(posts)} posts, {len(emails)} emails")
                     
-                    # Add metadata for each email found
+                    # Build email metadata for this query
+                    query_emails = []
                     for email in emails:
-                        category_emails.append({
+                        query_emails.append({
                             'email': email,
                             'category': category,
                             'query': query
                         })
                     
+                    # CONTINUOUS SAVE: Save after each query (append mode)
+                    if query_emails:
+                        # First query of first category = write mode, otherwise append
+                        is_first = (category_idx == 1 and query_idx == 1)
+                        mode = 'w' if is_first else 'a'
+                        save_emails_to_csv(query_emails, output_path=args.output, mode=mode)
+                    
                 except Exception as e:
                     print(f"  ✗ Error processing query '{query}': {e}")
                     continue
-            
-            # Save results for this category (append mode after first category)
-            if category_emails:
-                mode = 'a' if category_idx > 1 else 'w'
-                print(f"\n💾 Saving {len(category_emails)} email occurrences from '{category}'")
-                save_emails_to_csv(category_emails, output_path=args.output, mode=mode)
-            else:
-                print(f"\n⚠️  No emails found in '{category}'")
             
             # Wait before next category
             if category_idx < len(queries_by_category):
