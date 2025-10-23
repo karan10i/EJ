@@ -142,34 +142,53 @@ def login_linkedin(driver, username, password, wait_time=10, max_retries=3):
 def scroll_and_collect(driver, scroll_pause=2.0, max_scrolls=10):
     """Scroll the feed to load posts and collect page HTML after each scroll.
     
-    Also attempts to expand truncated posts by clicking "see more" buttons.
+    Expands truncated posts WITHOUT navigating away from search results.
 
     Returns concatenated HTML of loaded content.
     """
     last_height = driver.execute_script("return document.body.scrollHeight")
     html_chunks = []
+    
+    # Store original URL to detect navigation
+    original_url = driver.current_url
 
     for i in range(max_scrolls):
         driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
         time.sleep(scroll_pause)
         
         # Try to expand truncated posts by clicking "see more" buttons
+        # IMPORTANT: Only click buttons that expand inline, not links that navigate away
         try:
-            # LinkedIn uses various text for expansion: "...more", "see more", etc.
+            # Find expansion buttons (various selectors LinkedIn uses)
             see_more_buttons = driver.find_elements(By.XPATH, 
-                "//*[contains(@class, 'see-more') or contains(@class, 'show-more') or "
-                "contains(text(), '...more') or contains(text(), 'see more') or "
-                "contains(text(), 'See more')]")
+                "//button[contains(@class, 'see-more') or contains(@class, 'show-more') or "
+                "contains(@aria-label, 'see more')] | "
+                "//span[contains(@class, 'see-more') and contains(text(), '...more')]")
             
             clicked = 0
-            for btn in see_more_buttons[:10]:  # Limit to 10 per scroll to avoid infinite loops
+            for btn in see_more_buttons[:10]:  # Limit to 10 per scroll
                 try:
+                    # Only click if it's actually a button or span (not a link)
+                    tag_name = btn.tag_name.lower()
+                    if tag_name not in ['button', 'span']:
+                        continue
+                    
                     if btn.is_displayed() and btn.is_enabled():
-                        driver.execute_script("arguments[0].scrollIntoView(true);", btn)
+                        # Scroll element into view
+                        driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", btn)
                         time.sleep(0.3)
+                        
+                        # Click via JavaScript to avoid navigation
                         driver.execute_script("arguments[0].click();", btn)
                         clicked += 1
                         time.sleep(0.2)
+                        
+                        # Check if we navigated away (if so, go back)
+                        if driver.current_url != original_url:
+                            print(f"  ⚠️  Navigated away, going back...")
+                            driver.back()
+                            time.sleep(2)
+                            break
                 except:
                     continue
             
@@ -183,7 +202,7 @@ def scroll_and_collect(driver, scroll_pause=2.0, max_scrolls=10):
         new_height = driver.execute_script("return document.body.scrollHeight")
         # Collect current page HTML
         html_chunks.append(driver.page_source)
-        print(f"Scrolled {i+1}/{max_scrolls}")
+        print(f"  Scrolled {i+1}/{max_scrolls}")
         
         if new_height == last_height:
             # Reached the bottom or no more dynamic content
@@ -245,12 +264,13 @@ def load_search_queries(json_path, categories=None):
     return all_queries
 
 
-def build_linkedin_search_url(query, search_type='content'):
+def build_linkedin_search_url(query, search_type='content', time_filter='past-24h'):
     """Build a LinkedIn search URL for the given query.
     
     Args:
         query: Search term
         search_type: 'content' for posts, 'people' for profiles, 'jobs' for job listings
+        time_filter: Time filter - 'past-24h', 'past-week', 'past-month', or None for all time
     
     Returns:
         Full LinkedIn search URL
@@ -261,11 +281,17 @@ def build_linkedin_search_url(query, search_type='content'):
         'jobs': 'https://www.linkedin.com/search/results/jobs/'
     }
     base = base_urls.get(search_type, base_urls['content'])
+    
     # Encode the query and add common filters
     params = {
         'keywords': query,
         'origin': 'FACETED_SEARCH'
     }
+    
+    # Add time filter for content searches
+    if search_type == 'content' and time_filter:
+        params['datePosted'] = f'"{time_filter}"'
+    
     query_string = urllib.parse.urlencode(params)
     return f"{base}?{query_string}"
 
@@ -365,6 +391,10 @@ def save_emails_to_csv(emails_with_metadata, output_path='emails.csv', mode='w')
         output_path: Output CSV file path
         mode: File mode ('w' for overwrite, 'a' for append)
     """
+    if not emails_with_metadata:
+        print(f"  ⚠️ No emails to save")
+        return
+    
     file_exists = os.path.exists(output_path) and mode == 'a'
     
     with open(output_path, mode, newline='', encoding='utf-8') as csvfile:
@@ -387,9 +417,13 @@ def save_emails_to_csv(emails_with_metadata, output_path='emails.csv', mode='w')
                 'query': query,
                 'count': count
             })
+        
+        # Force write to disk
+        csvfile.flush()
+        os.fsync(csvfile.fileno())
     
-    unique_emails = len(set(item['email'] for item in emails_with_metadata))
-    print(f"  → Saved {unique_emails} unique emails ({len(emails_with_metadata)} total) to {output_path}")
+    unique_emails = len({item['email'] for item in emails_with_metadata})
+    print(f"  ✅ Saved {unique_emails} unique emails ({len(emails_with_metadata)} total) to {output_path}")
 
 
 def main():
@@ -412,6 +446,9 @@ def main():
     parser.add_argument('--output', type=str, default='emails.csv', help='Output CSV file path')
     parser.add_argument('--process-one-at-a-time', action='store_true',
                         help='Process one category at a time (slower but more reliable)')
+    parser.add_argument('--time-filter', choices=['past-24h', 'past-week', 'past-month', 'all'], 
+                        default='past-24h',
+                        help='Time filter for content searches (default: past-24h)')
     args = parser.parse_args()
 
     # Load search queries from JSON
@@ -457,7 +494,8 @@ def main():
             for query_idx, query in enumerate(queries, 1):
                 try:
                     print(f"\n[{query_idx}/{len(queries)}] Query: {query}")
-                    url = build_linkedin_search_url(query, args.search_type)
+                    time_filter = None if args.time_filter == 'all' else args.time_filter
+                    url = build_linkedin_search_url(query, args.search_type, time_filter)
                     
                     # Navigate to search URL
                     driver.get(url)
