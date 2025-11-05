@@ -1,85 +1,128 @@
-# LinkedIn Email Scraper
+# LinkedIn Email Scraper + Gmail Sender
 
-This script logs in to LinkedIn using Selenium, runs multiple search queries across different hiring categories (internships, entry-level, open-source), opens each search in a separate tab within one browser window, extracts visible post text, finds email addresses using regex, and writes unique emails to a CSV file with query/category metadata.
+Scrape recent LinkedIn posts for emails by query/category and send personalized emails via Gmail API. Results are saved to a CSV with metadata and a date column so you can send only for a specific day.
 
-Warning: Use this script only for personal/educational use and obey LinkedIn's terms of service.
+Use this for personal/educational purposes only. Respect LinkedIn's Terms of Service and local laws.
+
+## Repo structure
+
+- `linkedin_email_scraper.py` — Selenium scraper (saves collected emails to CSV)
+- `gmail_sender.py` — Gmail API sender with `--date` filter
+- `search_queries.json` — Query categories and terms
+- `requirements.txt` — Python dependencies
+- `.gitignore` — Excludes secrets and generated files (CSV, tokens, venv, etc.)
+- `README.md`
 
 ## Prerequisites
-- Python 3.8+
-- Chrome browser installed
 
-## Quick setup
+- macOS/Linux/Windows with Python 3.10+ (tested on 3.11)
+- Google Chrome installed
+
+## Setup
 
 ```bash
-# create virtualenv (macOS)
+cd /Users/karangupta/Desktop/SRM/own/Projects/sathi.me
+
+# 1) Create and activate a virtual environment
 python3 -m venv .venv
 source .venv/bin/activate
+
+# 2) Install dependencies
+pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-## Configuration
+## 1) Scrape emails from LinkedIn
 
-Edit `search_queries.json` to customize your search queries. The default configuration includes:
-- **internship_searches**: Software engineering intern roles, tech-specific intern positions
-- **entry_level_searches**: Junior/entry-level developer roles, new grad positions
-- **open_source_searches**: GitHub contribution labels (good first issue, help wanted, etc.)
-
-## Usage
-
-Set credentials via environment variables or enter them at prompt:
+Set your LinkedIn credentials via environment variables (or enter interactively when prompted):
 
 ```bash
-# export credentials (safer to use OS-level secret managers)
 export LINKEDIN_USERNAME="your.email@example.com"
 export LINKEDIN_PASSWORD="your_password"
 
-# NEW: Process categories one at a time (RECOMMENDED for reliability)
-# This processes one category completely before moving to the next
-python linkedin_email_scraper.py
-
-# Run specific categories only (e.g., just internships)
-python linkedin_email_scraper.py --categories internship_searches
-
-# Customize delays and scrolling
-python linkedin_email_scraper.py \
-  --categories internship_searches entry_level_searches \
-  --max-scrolls 10 \
-  --scroll-pause 2.5 \
-  --category-delay 15 \
-  --output hiring_emails.csv
-
-# Search for people instead of content posts
-python linkedin_email_scraper.py --search-type people
-```
-
-### Key improvements for reliability
-- **Login retry logic**: Automatically retries login up to 3 times with exponential backoff on timeout
-- **Sequential processing**: Processes one category at a time (no longer opens all tabs at once)
-- **Continuous saving**: Saves results after **EVERY query** completes (maximum data preservation on crash)
-- **Post expansion**: Automatically clicks "see more" buttons to expand truncated posts before extracting emails
-- **Better error handling**: Continues to next query if one fails; shows detailed progress
-
-### Recommended settings to avoid timeouts
-```bash
-# Conservative settings for maximum reliability
+# Run with reliable defaults; results go to mail.csv
 python linkedin_email_scraper.py \
   --max-scrolls 5 \
   --scroll-pause 3.0 \
   --tab-delay 4.0 \
-  --category-delay 15.0
+  --category-delay 15.0 \
+  --time-filter past-24h \
+  --output mail.csv
+
+# Run a specific category only (example: internships)
+python linkedin_email_scraper.py --categories internship_searches --output mail.csv
 ```
 
-## Output
+The scraper will open Chrome, log in, search, expand "see more" sections, extract emails, and continuously append results to `mail.csv` after each query. It retries login and waits conservatively to avoid timeouts.
 
-The script creates a CSV file (`emails.csv` by default) with the following columns:
-- **email**: The extracted email address
-- **category**: The query category (e.g., internship_searches)
-- **query**: The specific search query that found this email
-- **count**: Number of times this email appeared in results for this query
+### CSV schema (mail.csv)
 
-## Notes & Best practices
-- Do not hardcode credentials in code. Use environment variables or interactive prompt.
-- Be conservative with scrolls and pauses to avoid triggering anti-bot measures.
-- Consider using a real browser (non-headless) to reduce detection likelihood.
-- The script opens multiple tabs in one browser window - avoid closing tabs manually during execution.
-- This script is a simple educational example. For production or heavy scraping, consider respectful rate-limiting and legal compliance.
+- `email` — extracted email address
+- `category` — query category (e.g., internship_searches)
+- `query` — the search query string
+- `count` — number of occurrences for that (email, category, query)
+- `date` — ISO date (YYYY-MM-DD) of the run when the row was saved
+
+Tip: list which dates exist in your file
+
+```bash
+awk -F, 'NR>1 {print $5}' mail.csv | sort -u
+```
+
+## 2) Send emails via Gmail (by date)
+
+First-time Gmail API setup (one-time):
+
+1. Go to Google Cloud Console → create/select project
+2. Enable the Gmail API
+3. Create OAuth 2.0 Client ID (Desktop)
+4. Download `credentials.json` into this folder (gitignored)
+5. If your app is in testing mode, add your Gmail account under OAuth consent screen → Test users
+
+Preview without sending (choose a date that exists in `mail.csv`):
+
+```bash
+python gmail_sender.py --csv mail.csv --date 2025-11-05 --dry-run --limit 5
+```
+
+Send a small batch (attaches `RESUME2.pdf`, adjust path/filename):
+
+```bash
+python gmail_sender.py \
+  --csv mail.csv \
+  --resume RESUME2.pdf \
+  --date 2025-11-05 \
+  --limit 10 \
+  --delay 10
+```
+
+Notes:
+
+- On first real send, a browser opens for Google login/consent. A `token.json` is saved (gitignored) for next runs.
+- Use `--limit` to avoid blasting everyone at once; remove it only when you’re confident.
+- If you see `Error 403: access_denied`, add your email under OAuth consent screen → Test users.
+
+## Configuration: search queries
+
+Edit `search_queries.json` to customize what you search for. Example categories:
+
+- `internship_searches` — Software/Python/Backend intern roles
+- `entry_level_searches` — Junior/Entry-level/Associate roles
+- `Major` — Core roles (e.g., Software Engineer I, Full Stack Developer)
+- `open_source_searches` — “good first issue”, “help wanted”, etc.
+
+## Troubleshooting
+
+- ChromeDriver: handled automatically via `webdriver-manager`.
+- Login fails but browser shows you’re logged in: the script retries and uses multiple signals to detect login; watch for CAPTCHA and solve it manually.
+- Empty send set: ensure `--date` matches a date present in `mail.csv` (see the awk command above).
+- Gmail limits: normal Gmail sending limits apply.
+
+## Ethics & legal
+
+- Only use on accounts and data you’re authorized to access.
+- Respect site terms, robots, and rate limits. This repo is for educational purposes only.
+
+## License
+
+MIT (or your preferred license)
