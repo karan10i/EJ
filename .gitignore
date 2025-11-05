@@ -2,4 +2,12 @@
 __pycache__/
 *.pyc
 emails.csv
+.DS_Store
+mail.csv
+test_emails.csv
+test_queries.json
+RESUME*.pdf
 .env
+credentials.json
+token.json
+sent_emails.log

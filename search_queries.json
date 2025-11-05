@@ -27,6 +27,37 @@
     "Entry-Level Back-End Engineer",
     "Junior Full Stack Developer"
   ],
+  "Hiring":[
+    "Hiring Software Engineer",
+    "Hiring Software Developer",
+    "Hiring Junior Developer",
+    "Hiring Entry-Level Developer",
+    "Hiring Associate Developer",
+    "Hiring Graduate Developer",
+    "Hiring Node.js Developer",
+    "Hiring React Developer",
+    "Hiring Front-End Developer",
+    "Hiring Back-End Developer"
+  ],
+  "Major": [
+    "Software Engineer I",
+    "Software Developer I",
+    "Junior Software Developer",
+    "Associate Software Developer",
+    "Graduate Software Developer",
+    "New Grad Developer",
+    "Front-End Developer",
+    "Back-End Developer",
+    "Full Stack Developer",
+    "Web Developer",
+    "Application Developer",
+    "Node.js Developer",
+    "React Developer",
+    "Express.js Developer",
+    "Django Developer",
+    "Auth0 Developer",
+    "Flask Developer"
+  ],
   "open_source_searches": [
     "good first issue",
     "help wanted",

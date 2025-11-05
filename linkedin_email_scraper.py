@@ -84,7 +84,7 @@ def init_driver(headless=False):
     return driver
 
 
-def login_linkedin(driver, username, password, wait_time=10, max_retries=3):
+def login_linkedin(driver, username, password, wait_time=20, max_retries=3):
     """Log in to LinkedIn using provided credentials with retry logic.
 
     Args:
@@ -113,20 +113,56 @@ def login_linkedin(driver, username, password, wait_time=10, max_retries=3):
 
             # Submit the form
             pass_input.send_keys(Keys.RETURN)
+            
+            # Wait a bit for page to start loading
+            time.sleep(3)
 
-            # Wait for navigation - presence of profile nav as success indicator
-            wait.until(EC.presence_of_element_located((By.ID, "global-nav-search")))
-            print("✓ Logged in successfully.")
-            return True
+            # Try multiple indicators of successful login (LinkedIn's structure varies)
+            success = False
+            try:
+                # Try method 1: Check for feed URL
+                wait.until(lambda d: "feed" in d.current_url or "mynetwork" in d.current_url or "search" in d.current_url)
+                success = True
+                print("✓ Logged in successfully (detected via URL).")
+            except TimeoutException:
+                pass
+            
+            if not success:
+                try:
+                    # Try method 2: Look for navigation bar elements
+                    wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "nav.global-nav, nav[role='navigation'], header")))
+                    success = True
+                    print("✓ Logged in successfully (detected via nav element).")
+                except TimeoutException:
+                    pass
+            
+            if not success:
+                try:
+                    # Try method 3: Check for profile menu or search box
+                    wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "[data-control-name='identity_welcome_message'], input[placeholder*='Search']")))
+                    success = True
+                    print("✓ Logged in successfully (detected via search/profile).")
+                except TimeoutException:
+                    pass
+            
+            if success:
+                return True
+            else:
+                raise TimeoutException("Could not verify login success")
             
         except TimeoutException:
             print(f"✗ Login timeout on attempt {attempt}")
+            print(f"  Current URL: {driver.current_url}")
             if attempt < max_retries:
                 wait_seconds = attempt * 5  # Exponential backoff
                 print(f"  Waiting {wait_seconds}s before retry...")
                 time.sleep(wait_seconds)
             else:
-                print("Login failed after all retries. Check credentials or try again later.")
+                print("Login failed after all retries.")
+                print("  Possible causes:")
+                print("  - CAPTCHA or security check required (check browser window)")
+                print("  - LinkedIn detected automation")
+                print("  - Incorrect credentials")
                 return False
                 
         except Exception as e:
@@ -397,31 +433,29 @@ def save_emails_to_csv(emails_with_metadata, output_path='emails.csv', mode='w')
     
     file_exists = os.path.exists(output_path) and mode == 'a'
     
+    import datetime
     with open(output_path, mode, newline='', encoding='utf-8') as csvfile:
-        fieldnames = ['email', 'category', 'query', 'count']
+        fieldnames = ['email', 'category', 'query', 'count', 'date']
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-        
         if not file_exists or mode == 'w':
             writer.writeheader()
-        
         # Aggregate emails by (email, category, query) and count occurrences
         email_counts = {}
         for item in emails_with_metadata:
             key = (item['email'], item['category'], item['query'])
             email_counts[key] = email_counts.get(key, 0) + 1
-        
+        today = datetime.date.today().isoformat()
         for (email, category, query), count in sorted(email_counts.items()):
             writer.writerow({
                 'email': email,
                 'category': category,
                 'query': query,
-                'count': count
+                'count': count,
+                'date': today
             })
-        
         # Force write to disk
         csvfile.flush()
         os.fsync(csvfile.fileno())
-    
     unique_emails = len({item['email'] for item in emails_with_metadata})
     print(f"  ✅ Saved {unique_emails} unique emails ({len(emails_with_metadata)} total) to {output_path}")
 
@@ -443,7 +477,7 @@ def main():
                         help='Seconds to wait between opening tabs')
     parser.add_argument('--category-delay', type=float, default=10.0,
                         help='Seconds to wait between processing categories')
-    parser.add_argument('--output', type=str, default='emails.csv', help='Output CSV file path')
+    parser.add_argument('--output', type=str, default='mail.csv', help='Output CSV file path')
     parser.add_argument('--process-one-at-a-time', action='store_true',
                         help='Process one category at a time (slower but more reliable)')
     parser.add_argument('--time-filter', choices=['past-24h', 'past-week', 'past-month', 'all'], 

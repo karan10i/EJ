@@ -1,3 +1,7 @@
 selenium
 webdriver-manager
 beautifulsoup4
+mailchimp-marketing
+google-api-python-client
+google-auth-httplib2
+google-auth-oauthlib
