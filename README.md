@@ -123,6 +123,4 @@ Edit `search_queries.json` to customize what you search for. Example categories:
 - Only use on accounts and data you’re authorized to access.
 - Respect site terms, robots, and rate limits. This repo is for educational purposes only.
 
-## License
 
-MIT (or your preferred license)

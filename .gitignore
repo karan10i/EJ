@@ -6,8 +6,13 @@ emails.csv
 mail.csv
 test_emails.csv
 test_queries.json
-RESUME*.pdf
+RESUME2.pdf
 .env
 credentials.json
 token.json
+sent_emails.log
+credentials_10i.json
+credentials_karan.json
+token_karan.json
+token_10i.json
 sent_emails.log

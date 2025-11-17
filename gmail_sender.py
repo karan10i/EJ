@@ -29,11 +29,12 @@ import csv
 import time
 import base64
 import argparse
-from typing import Dict, List
+from typing import Dict, List, Set
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.mime.base import MIMEBase
 from email import encoders
+import socket
 
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
@@ -138,18 +139,52 @@ def build_message(sender: str, to: str, subject: str, body_text: str, attachment
                 f"attachment; filename={os.path.basename(attachment_path)}",
             )
             message.attach(part)
+            print(f"    📎 Attached: {os.path.basename(attachment_path)} ({os.path.getsize(attachment_path)} bytes)")
+    elif attachment_path:
+        print(f"    ⚠️  Attachment not found: {attachment_path}")
 
     raw = base64.urlsafe_b64encode(message.as_bytes()).decode()
     return {"raw": raw}
 
 
-def send_message(service, user_id: str, message: Dict) -> bool:
-    try:
-        service.users().messages().send(userId=user_id, body=message).execute()
-        return True
-    except HttpError as e:
-        print(f"    ✗ Gmail API error: {e}")
-        return False
+def send_message(service, user_id: str, message: Dict, max_retries: int = 3) -> bool:
+    """Send message with retry logic for network errors."""
+    for attempt in range(1, max_retries + 1):
+        try:
+            service.users().messages().send(userId=user_id, body=message).execute()
+            return True
+        except HttpError as e:
+            print(f"    ✗ Gmail API error: {e}")
+            return False
+        except (socket.timeout, TimeoutError, ConnectionError, OSError) as e:
+            if attempt < max_retries:
+                wait = attempt * 5  # 5s, 10s, 15s
+                print(f"    ⚠️  Network error (attempt {attempt}/{max_retries}): {type(e).__name__}")
+                print(f"    ⏳ Retrying in {wait}s...")
+                time.sleep(wait)
+            else:
+                print(f"    ✗ Failed after {max_retries} retries: {type(e).__name__}")
+                return False
+        except Exception as e:
+            print(f"    ✗ Unexpected error: {e}")
+            return False
+    return False
+
+
+def load_sent_emails(log_file: str) -> Set[str]:
+    """Load set of emails already sent from log file."""
+    if not os.path.exists(log_file):
+        return set()
+    with open(log_file, "r", encoding="utf-8") as f:
+        return set(line.strip().lower() for line in f if line.strip())
+
+
+def mark_email_sent(log_file: str, email: str):
+    """Append email to sent log file."""
+    with open(log_file, "a", encoding="utf-8") as f:
+        f.write(f"{email.lower()}\n")
+        f.flush()
+        os.fsync(f.fileno())
 
 
 def main():
@@ -161,7 +196,14 @@ def main():
     parser.add_argument("--limit", type=int, help="Limit number of emails to send")
     parser.add_argument("--delay", type=float, default=5.0, help="Seconds to wait between sends")
     parser.add_argument("--date", type=str, default=None, help="Only send emails from this date (YYYY-MM-DD) in mail.csv")
+    parser.add_argument("--sent-log", type=str, default="sent_emails.log", help="Log file to track sent emails (resume capability)")
+    parser.add_argument("--reset-log", action="store_true", help="Clear sent log and start fresh")
     args = parser.parse_args()
+
+    # Handle sent log reset
+    if args.reset_log and os.path.exists(args.sent_log):
+        os.remove(args.sent_log)
+        print(f"🗑️  Cleared sent log: {args.sent_log}")
 
     rows = read_emails_from_csv(args.csv, filter_date=args.date)
     uniq = unique_by_email(rows)
@@ -169,7 +211,21 @@ def main():
         print("No emails found in CSV.")
         return
 
+    # Load already-sent emails to avoid duplicates on resume
+    sent_emails = load_sent_emails(args.sent_log) if not args.dry_run else set()
+    remaining = {e: info for e, info in uniq.items() if e.lower() not in sent_emails}
+
     print(f"Loaded {len(uniq)} unique recipients from {args.csv}")
+    if sent_emails:
+        print(f"📋 Already sent to {len(sent_emails)} recipients (skipping them)")
+        print(f"📬 Remaining to send: {len(remaining)}")
+    
+    if not remaining and not args.dry_run:
+        print("✅ All recipients already contacted. Use --reset-log to start fresh.")
+        return
+    
+    # Use remaining instead of uniq for actual sending
+    uniq = remaining if not args.dry_run else uniq
 
     # Preview mode
     if args.dry_run:
@@ -193,12 +249,13 @@ def main():
         # Note: 'me' userId uses the authorized account from OAuth
         msg = build_message(args.sender or "me", email, subject, body, args.resume)
         print(f"[{i}] Sending to: {email}  |  Subject: {subject}")
-        ok = send_message(service, user_id="me", message=msg)
+        ok = send_message(service, user_id="me", message=msg, max_retries=3)
         if ok:
             print("    ✓ Sent")
+            mark_email_sent(args.sent_log, email)
             sent += 1
         else:
-            print("    ✗ Failed")
+            print("    ✗ Failed (will retry on next run)")
         if i < len(uniq):
             time.sleep(args.delay)
 
