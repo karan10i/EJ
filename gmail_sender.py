@@ -49,11 +49,11 @@ def get_template_for_job(job_title: str):
     subject = f"{job_title} Application - Karan Gupta"
     body = f"""Hi,
 
-I am writing to express my strong interest in the \"{job_title}\" role as advertised on LinkedIn. With five years of hands-on experience in Node.js and JavaScript development, including building robust and responsive web applications, scalable APIs, and optimizing backend systems for efficient performance, I am confident in my ability to contribute effectively to your engineering team.
+I am writing to express my strong interest in the \"{job_title}\" role as advertised on LinkedIn. With hands-on experience in Node.js and JavaScript development, including building robust and responsive web applications, scalable APIs, and optimizing backend systems for efficient performance, I am confident in my ability to contribute effectively to your engineering team.
 
-My technical expertise encompasses Node.js, Express.js, MongoDB, React, microservices architecture, and CI/CD automation using tools like Jenkins and GitHub Actions. I have a proven track record of delivering scalable solutions—such as a real-time, browser-based SSH control plane and high-performance CI/CD-backed deployments—that streamline user experiences and ensure system reliability.
+My technical expertise encompasses Node.js, Express.js, MongoDB, Dyjango, Flask, Web Templates, React, microservices architecture, and CI/CD automation using tools like Jenkins and GitHub Actions. I have a proven track record of delivering scalable solutions—such as a real-time, browser-based SSH control plane and high-performance CI/CD-backed deployments—that streamline user experiences and ensure system reliability.
 
-I am eager to apply my skills and learn in a dynamic environment, ideally starting with an internship to further sharpen my expertise and add value to your projects. My attached resume provides more details on my background and qualifications.
+I am eager to apply my skills and learn in a dynamic environment, ideally starting with an open-source project to further sharpen my expertise and add value to your projects. My attached resume provides more details on my background and qualifications.
 
 Thank you for your time and consideration.
 

@@ -1,19 +1,4 @@
 {
-  "internship_searches": [
-    "Software Engineering Intern",
-    "Software Engineer Intern",
-    "Developer Intern",
-    "Summer Intern",
-    "Software Development Intern",
-    "Programming Intern",
-    "Tech Intern",
-    "SDE Intern",
-    "JavaScript Intern",
-    "Python Intern",
-    "Java Intern",
-    "React Intern",
-    "Node.js Intern"
-  ],
   "entry_level_searches": [
     "Junior Developer",
     "Junior Software Engineer",
@@ -22,30 +7,35 @@
     "Associate Developer",
     "Associate Software Engineer",
     "Graduate Developer",
-    "New Grad Software Engineer",
+    "Entry-Level Software Engineer",
+    "Junior Web Developer",
     "Entry-Level Front-End Engineer",
-    "Entry-Level Back-End Engineer",
     "Junior Full Stack Developer"
   ],
   "Hiring":[
-    "Hiring Intern",
     "Hiring Software Engineer",
     "Hiring Software Developer",
     "Hiring Junior Developer",
+    "Hiring Web Developer",
+    "Hiring Next.js Developer",
+    "Hiring GenAi Developer",
+    "Looking for Software Engineer",
+    "Looking for Software Developer",
+    "Hiring Full Stack Developer",
     "Hiring Entry-Level Developer",
     "Hiring Associate Developer",
     "Hiring Node.js Developer",
     "Hiring React Developer",
     "Hiring Front-End Developer",
-    "Hiring Back-End Developer"
+    "Hiring Back-End Developer",
+    "Hiring Django Developer"
   ],
   "Major": [
-    "Software Engineer I",
+    "Software Engineer I",  
     "Software Developer I",
     "Junior Software Developer",
     "Associate Software Developer",
     "Graduate Software Developer",
-    "New Grad Developer",
     "Front-End Developer",
     "Back-End Developer",
     "Full Stack Developer",
@@ -57,13 +47,5 @@
     "Django Developer",
     "Auth0 Developer",
     "Flask Developer"
-  ],
-  "open_source_searches": [
-    "good first issue",
-    "help wanted",
-    "first-timers-only",
-    "beginner-friendly",
-    "up-for-grabs",
-    "documentation"
   ]
 }
